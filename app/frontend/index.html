@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuAu Assistant - PetTech</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .chat-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 h-screen flex flex-col font-sans">
+
+    <!-- Header / Cabeçalho -->
+    <header class="bg-indigo-600 text-white p-4 shadow-md flex justify-between items-center">
+        <div class="flex items-center space-x-3">
+            <div class="bg-white p-2 rounded-full text-2xl">🐶</div>
+            <div>
+                <h1 class="text-xl font-bold leading-tight">AuAu Assistant</h1>
+                <p class="text-xs text-indigo-200">Pet Shop PetTech • Atendimento IA</p>
+            </div>
+        </div>
+        <button id="btn-nova-sessao"
+            class="bg-indigo-700 hover:bg-indigo-800 text-xs text-white py-2 px-3 rounded-lg shadow transition">
+            🔄 Nova Conversa
+        </button>
+    </header>
+
+    <!-- Área Principal do Chat -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col overflow-hidden">
+
+        <!-- Caixas de Mensagem -->
+        <div id="chat-container" class="flex-1 overflow-y-auto chat-scroll space-y-4 pr-2 pb-4">
+
+            <!-- Mensagem Inicial -->
+            <div class="flex items-start space-x-2">
+                <div class="bg-indigo-600 text-white p-2 rounded-full text-sm">🐶</div>
+                <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm max-w-[80%] border border-slate-200">
+                    <p class="text-slate-800 text-sm">
+                        Olá! Sou o <strong>AuAu Assistant</strong>, o atendente virtual do Pet Shop PetTech. 🐾<br><br>
+                        Como posso ajudar você e seu pet hoje? Você pode tirar dúvidas ou agendar banho, tosa, corte de
+                        unhas e hidratação!
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Indicador de Digitação -->
+        <div id="loading" class="hidden flex items-center space-x-2 text-slate-400 text-xs mb-2 italic">
+            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+            <span>AuAu Assistant está digitando...</span>
+        </div>
+
+        <!-- Input de Mensagem -->
+        <div class="flex space-x-2 bg-white p-2 rounded-xl shadow-md border border-slate-200">
+            <input type="text" id="user-input" placeholder="Digite sua mensagem aqui..."
+                class="flex-1 px-4 py-2 border-none focus:outline-none text-slate-700 text-sm" />
+            <button type="button" id="send-btn"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg font-medium text-sm transition flex items-center space-x-1">
+                <span>Enviar</span>
+                <span>🚀</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- Lógica em JavaScript -->
+    <script>
+        const API_URL = "http://127.0.0.1:8000/api/v1/chat";
+        let sessionId = localStorage.getItem("petshop_session_id") || null;
+
+        const inputElement = document.getElementById("user-input");
+        const btnSend = document.getElementById("send-btn");
+        const btnNovaSessao = document.getElementById("btn-nova-sessao");
+
+        // Captura de eventos via JavaScript (Sem inline HTML)
+        btnSend.addEventListener("click", (e) => enviarMensagem(e));
+
+        inputElement.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                enviarMensagem(e);
+            }
+        });
+
+        btnNovaSessao.addEventListener("click", novaSessao);
+
+        function scrollAoFundo() {
+            const container = document.getElementById("chat-container");
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function formatarTexto(texto) {
+            if (!texto) return "";
+            return texto
+                .replace(/\n/g, "<br>")
+                .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+        }
+
+        function adicionarMensagemUsuario(texto) {
+            const container = document.getElementById("chat-container");
+            const html = `
+                <div class="flex items-start justify-end space-x-2">
+                    <div class="bg-indigo-600 text-white p-4 rounded-2xl rounded-tr-none shadow-sm max-w-[80%] text-sm">
+                        <p>${formatarTexto(texto)}</p>
+                    </div>
+                </div>
+            `;
+            container.innerHTML += html;
+            scrollAoFundo();
+        }
+
+        function adicionarMensagemAssistente(texto, ficha = null) {
+            const container = document.getElementById("chat-container");
+
+            let fichaHtml = "";
+            if (ficha && ficha.nome_pet) {
+                const servicosTexto = Array.isArray(ficha.servicos) ? ficha.servicos.join(", ") : (ficha.servicos || "Nenhum");
+                const valorFormatted = typeof ficha.valor_total === "number" ? ficha.valor_total.toFixed(2) : "0.00";
+
+                fichaHtml = `
+                    <div class="mt-3 p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 text-xs space-y-1">
+                        <div class="font-bold text-sm text-emerald-800 flex items-center space-x-1">
+                            <span>✅</span> <span>Agendamento Confirmado!</span>
+                        </div>
+                        <div><strong>Pet:</strong> ${ficha.nome_pet} (${ficha.especie || ""} - porte ${ficha.porte || ""})</div>
+                        <div><strong>Serviços:</strong> ${servicosTexto}</div>
+                        <div><strong>Data/Período:</strong> ${ficha.dia || ""} (${ficha.periodo || ""})</div>
+                        <div class="text-sm font-semibold text-emerald-700 mt-1">Valor Total: R$ ${valorFormatted}</div>
+                    </div>
+                `;
+            }
+
+            const html = `
+                <div class="flex items-start space-x-2">
+                    <div class="bg-indigo-600 text-white p-2 rounded-full text-sm">🐶</div>
+                    <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm max-w-[80%] border border-slate-200 text-sm text-slate-800">
+                        <p>${formatarTexto(texto)}</p>
+                        ${fichaHtml}
+                    </div>
+                </div>
+            `;
+            container.innerHTML += html;
+            scrollAoFundo();
+        }
+
+        async function enviarMensagem(event) {
+            if (event) event.preventDefault();
+
+            const mensagem = inputElement.value.trim();
+            if (!mensagem) return;
+
+            adicionarMensagemUsuario(mensagem);
+            inputElement.value = "";
+
+            document.getElementById("loading").classList.remove("hidden");
+            btnSend.disabled = true;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        message: mensagem
+                    })
+                });
+
+                if (!response.ok) throw new Error("Status de erro: " + response.status);
+
+                const data = await response.json();
+
+                if (data.session_id) {
+                    sessionId = data.session_id;
+                    localStorage.setItem("petshop_session_id", sessionId);
+                }
+
+                adicionarMensagemAssistente(data.response, data.ficha_agendamento);
+
+            } catch (error) {
+                console.error("Erro na requisição:", error);
+                adicionarMensagemAssistente("❌ Ops! Ocorreu um erro ao comunicar com o servidor.");
+            } finally {
+                document.getElementById("loading").classList.add("hidden");
+                btnSend.disabled = false;
+            }
+        }
+
+        function novaSessao() {
+            if (confirm("Deseja iniciar uma nova conversa? O histórico da tela será limpo.")) {
+                localStorage.removeItem("petshop_session_id");
+                sessionId = null;
+                location.reload();
+            }
+        }
+    </script>
+</body>
+
+</html>
