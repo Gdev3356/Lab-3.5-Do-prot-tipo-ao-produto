@@ -79,6 +79,7 @@ petshop-assistant-api/
 
 6. **Acesse a documentação:**
    Navegue até [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) para interagir com os endpoints via Swagger.
+   Navegue até [http://127.0.0.1:8000/](http://127.0.0.1:8000/) para acessar o assistente virtual.
 
 ---
 
